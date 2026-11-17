@@ -3,8 +3,9 @@
 
 Sites: the two startup sites, recorder admission and the stop cursor setter,
 the five Main receive calls and, in the trial, the Editor query parser. The
-stock ring size stays stock, and so does the DSP code except, in builds with
-AUX_LINK, the two AUX limiter detector call sites (LINK_SPECS); the DSP
+stock ring size stays stock. DSP edits are the two AUX limiter detector call
+sites in builds with AUX_LINK (LINK_SPECS), plus twelve USB source selections
+when usb_inputs_first is requested. The DSP
 record is repacked so the code can reuse its consumed source span.
 """
 import hashlib,json,struct
@@ -17,6 +18,7 @@ from plan_capture_startup import SPECS as STARTUP_SPECS,make_patch as startup_pa
 from plan_capture_transitions import RECEIVERS,receive_patch
 from plan_capture_packing import report as packing_report
 from plan_simple_capture import QUERY_SPEC,reuse_packing,interior_branches
+from build_usb_reorder import dsp_patches as usb_patches
 
 ELF=ROOT/'src/capture/master/master-ref.elf'
 TRIAL_ELF=ROOT/'src/capture/master/master-ref-trial.elf'
@@ -70,15 +72,16 @@ def link_patch(stock,spec,target):
     return dict(**spec,source_file_offset=offset,bytes=len(old),target=target,patch=patch.hex(),
                 decoded_original=[f'{i.mnemonic} {i.op_str}' for i in decoded])
 
-def plan(elf_path=None,trial=False):
+def plan(elf_path=None,trial=False,usb_inputs_first=False):
     elf_path=elf_path or (TRIAL_ELF if trial else ELF)
     stock=SOURCE.read_bytes()
     if hashlib.sha256(stock).hexdigest()!=STOCK_SHA:raise ValueError('unsupported stock firmware')
     validate(stock);names=symbols(elf_path)
     if any(n in names for n in ('placement_tap_hook','placement_commit_hook','sc_ring_frames')):
         raise ValueError('master reference builds must not tap the DSP audio or resize the ring')
-    # The linked limiters are the one change to the DSP code: two call sites.
+    # Apply source selections before compression, alongside the linked limiters.
     dsp_patches=[link_patch(stock,s,names[s['adapter']]) for s in LINK_SPECS] if 'sa_limit_a' in names else []
+    if usb_inputs_first:dsp_patches+=usb_patches(stock)
     p=reuse_packing(elf_path,dsp=False,dsp_patches=dsp_patches);p['names']=names;at=dict(code_interval=CODE_INTERVAL)
     patches=[startup_patch(stock,s,names[s['adapter']],**at) for s in STARTUP_SPECS]
     if trial:patches.append(main_patch(stock,QUERY_SPEC,names['health_parser'],**at))

@@ -71,6 +71,21 @@ its published hash:
 
 Then [install](../README.md#install).
 
+### Numbered USB inputs first
+
+To keep the overdub and stereo AUX features while moving the master pair to
+USB 11/12, use the experimental build flag:
+
+```sh
+python tools/firmware/build_release.py --usb-inputs-first
+```
+
+This writes `release/0.3.1-usb-inputs-first/`, not the default release folder.
+Copy that folder's `L6.BIN` to the card yourself and follow the
+[update procedure](../README.md#install). The installer script still selects
+the default release. This variant is not added to the hosted browser patcher.
+See [USB input order](usb-reorder.md) for testing limits and verification.
+
 ## Rebuilding earlier experiments
 
 `tools/firmware/build_master_trial.py <mode>` rebuilds any installed

@@ -236,6 +236,9 @@ The test is written up in
 
 - **[Build from source](docs/setup.md).** macOS or Linux, git and Python 3.12
   or newer; the build produces `release/0.3.1/L6.BIN`.
+- **[USB input order](docs/usb-reorder.md).** An optional build flag puts the
+  numbered inputs first and the master on USB 11/12. It is off by default
+  and is not offered by the browser patcher.
 - **Installer script.** With the mixer's card mounted,
   `python tools/device/install_release.py --eject` copies the built `L6.BIN`
   to it (after backing up the card's existing `L6.BIN` and settings file) and

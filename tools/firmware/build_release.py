@@ -14,6 +14,9 @@ Writes release/<version>/:
 
 Needs Reference/L6_v1.10_E/L6.BIN (see docs/setup.md). Once a release is
 pinned, a build that does not reproduce its published hash stops with an error.
+
+--usb-inputs-first builds an experimental variant in
+release/<version>-usb-inputs-first/ without publishing a hosted recipe.
 """
 import argparse,json
 from build_deployment_probe import ROOT,SOURCE,digest,write_manifest
@@ -23,9 +26,11 @@ import recipe as recipes
 def main():
     a=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
     a.add_argument('--out',default=str(ROOT/'release'),help='parent folder (default: release/)')
+    a.add_argument('--usb-inputs-first',action='store_true',
+                   help='experimental USB capture order: inputs 1-10, then master 11/12; separate output, not published to the browser patcher')
     args=a.parse_args()
-    data,wav,report,t=trial('release')
-    out=(ROOT/args.out)/MODES['release']['version'];out.mkdir(parents=True,exist_ok=True)
+    data,wav,report,t=trial('release',usb_inputs_first=args.usb_inputs_first)
+    out=(ROOT/args.out)/report['version'];out.mkdir(parents=True,exist_ok=True)
     # From 0.2.0 the firmware writes the pad anchors itself.
     files={'L6.BIN':data} if MODES['release'].get('anchors') else {'L6.BIN':data,'MASTER.WAV':wav}
     for name,content in files.items():
@@ -37,7 +42,7 @@ def main():
     recipe=recipes.make(SOURCE.read_bytes(),data,t['pack'],report['version'])
     text=json.dumps(recipe,indent=1)+'\n'
     (out/'recipe.json').write_text(text)
-    pinned='sha' in MODES['release']
+    pinned=bool(report['expected_sha256'])
     if not pinned:
         print(json.dumps(dict(version=report['version'],folder=str(out),l6_bin_sha256=digest(data),
                               files=sorted(files),pinned=False,patcher='not updated (unpinned)')))

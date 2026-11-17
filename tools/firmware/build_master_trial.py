@@ -152,12 +152,14 @@ def anchor():
     h[36:40]=b'JUNK';struct.pack_into('<I',h,40,460);h[504:508]=b'data';struct.pack_into('<I',h,508,payload)
     return bytes(h)+bytes(payload)
 
-def trial(mode='reference'):
+def trial(mode='reference',*,usb_inputs_first=False):
+    if usb_inputs_first and mode!='release':
+        raise ValueError('USB inputs first is supported only for the release build')
     m=MODES[mode]
     stock=SOURCE.read_bytes();require(digest(stock)==STOCK_SHA,'unsupported stock firmware')
     validate(stock)
     diagnostic=m.get('trial',True)
-    with trial_elf(m) as elf:t=plan(elf,trial=diagnostic);elf_sha=digest(elf.read_bytes())
+    with trial_elf(m) as elf:t=plan(elf,trial=diagnostic,usb_inputs_first=usb_inputs_first);elf_sha=digest(elf.read_bytes())
     p=t['pack']
     data=assemble(stock,t);names=p['names'];wav=anchor()
     # The features the mode promises are the hooks the plan patched.
@@ -165,8 +167,10 @@ def trial(mode='reference'):
     for hook,wanted in (('health_parser',diagnostic),('mr_play_hook',m.get('history',False)),('sa_ramp',m.get('stereo',False))):
         require((hook in adapters)==wanted,f'{mode}: {hook} patched: {hook in adapters}, expected {wanted}')
     dsp_adapters={q['adapter'] for q in t['DSP_patches']}
-    require(dsp_adapters==({'sa_limit_a','sa_limit_b'} if m.get('link') else set()),f'{mode}: DSP patches {sorted(dsp_adapters)}')
-    if 'sha' in m:require(digest(data)==m['sha'],f'{mode}: image {digest(data)} differs from the expected {m["sha"]}')
+    expected_dsp=({'sa_limit_a','sa_limit_b'} if m.get('link') else set())
+    if usb_inputs_first:expected_dsp|={f'usb_source_{n}' for n in range(1,13)}
+    require(dsp_adapters==expected_dsp,f'{mode}: DSP patches {sorted(dsp_adapters)}')
+    if 'sha' in m and not usb_inputs_first:require(digest(data)==m['sha'],f'{mode}: image {digest(data)} differs from the expected {m["sha"]}')
     pads=[f'A:\\SOUND_PAD\\PAD{n}\\MASTER.WAV' for n in range(1,m['pads']+1)]
     report=dict(experiment=m['experiment'],mode='master' if mode=='reference' else mode,version=m.get('version'),
         minimum_take_seconds=2 if m.get('minimum') else None,
@@ -219,6 +223,11 @@ def trial(mode='reference'):
             *(['Task stack headroom is read from the stock A5 fill; the hooks note the least stack free below their own frame'] if m.get('stack') else []),
             'Early-hang recovery: shown on the mixer in experiment 18 (the bootloader runs the PLAY/STOP update before MAIN)',
             'No installation, staging or installed-flash readback is performed by this builder'])
+    if usb_inputs_first:
+        report.update(version=m['version']+'-usb-inputs-first',expected_sha256=None,
+                      usb_inputs_first=True,status='experimental; combined image not hardware-tested')
+        report['unchanged'][0]='Stock DSP except the two AUX limiter sites and twelve USB source selections; ring size, recorder, SD driver and recording files'
+        report['limitations'].append('USB inputs first combined with overdub and stereo AUX has not been tested on hardware')
     return data,wav,report,t
 
 def main():

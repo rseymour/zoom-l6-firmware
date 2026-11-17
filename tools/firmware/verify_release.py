@@ -9,6 +9,7 @@ must reproduce its published hash once pinned), then runs:
   verify_master_ref_everyday   take chain and history groups on the release link
   verify_stereo_aux_hooks_everyday  stereo AUX and switch groups on the release link
   verify_long_uptime                timers and counters 24.9 and 49.7 days after power-on, and at their wraps
+  verify_usb_reorder_release        optional USB order, boot, audio buffers and separate CLI outputs
   verify_patcher               the browser patcher's JavaScript under Node (skipped without Node)
 Takes a few minutes.
 """
@@ -20,7 +21,7 @@ ENV=dict(os.environ,PYTHONPATH=os.pathsep.join(filter(None,[str(ROOT/'tools/firm
 FIXTURES=(['tools/firmware/build_overdub_prototype.py'],['tools/firmware/build_extra_capture.py'],
           ['tools/firmware/build_extra_capture.py','--layout','placement'],
           ['tools/firmware/build_extra_capture.py','--layout','placement','--startup-fixture'])
-SUITES=('verify_master_everyday.py','verify_master_ref_everyday.py','verify_stereo_aux_hooks_everyday.py','verify_long_uptime.py','verify_patcher.py')
+SUITES=('verify_master_everyday.py','verify_master_ref_everyday.py','verify_stereo_aux_hooks_everyday.py','verify_long_uptime.py','verify_usb_reorder_release.py','verify_patcher.py')
 
 def run(args,cwd=ROOT):
     r=subprocess.run([sys.executable,*args],cwd=cwd,env=ENV,text=True,capture_output=True)
